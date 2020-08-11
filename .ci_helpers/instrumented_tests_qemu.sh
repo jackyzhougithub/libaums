@@ -4,13 +4,9 @@ set -e
 
 api="$1"
 
-export JOB_COMMAND="./gradlew androidtests:connectedAndroidTest"
 export JOB_WORKDIR="$(pwd)"
 
-if [ "$api" == "23" ]; then
-  # API 23 Android-x86 image connects to the network automatically
-  export VIRTWIFI_HACK=0
-else
+if [ "$VIRTWIFI_HACK" != 0 ]; then
   echo "Downloading VirtWifi connector..."
   wget -qO virtwificonnector.apk "$(curl -s https://api.github.com/repos/EtchDroid/VirtWifiConnector/releases/latest | grep 'virtwificonnector-debug.apk' | grep download | cut -d '"' -f 4)"
   export VIRTWIFICONNECTOR_APK="$(pwd)/virtwificonnector.apk"
