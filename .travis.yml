@@ -1,26 +1,21 @@
-language: android
-jdk: oraclejdk11
+language: bash
+os: linux
 dist: bionic
-sudo: required
 group: edge
-
-android:
-  components:
-    - tools
-    - android-29
-
-install:
-  # Enable all Ubuntu repos
-  - sudo apt-get update
-  - sudo apt-get install -y build-essential snapd golang qemu-utilslibvirt-clients fdisk python3 python3-pip python3-setuptools dosfstools rpm2cpio libarchive-tools adb ffmpeg git
-  - sudo snap install qemu-virgil
-  - sudo pip3 install https://github.com/EtchDroid/qemu_test_orchestrator/archive/master.zip
-  - yes | sdkmanager 'ndk-bundle'
-  - yes | sdkmanager 'cmake;3.6.4111459'
 
 env:
   global:
+    # Android/Java stuff
     - ADB_INSTALL_TIMEOUT=8
+    - ANDROID_HOME=${HOME}/android-sdk
+    - ANDROID_TOOLS_URL="https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip"
+    - GRAVIS_REPO="https://github.com/DanySK/Gravis-CI.git"
+    - GRAVIS="$HOME/gravis"
+    - JDK="1.8"
+    - TOOLS=${ANDROID_HOME}/tools
+    - PATH=${ANDROID_HOME}:${ANDROID_HOME}/emulator:${TOOLS}:${TOOLS}/bin:${ANDROID_HOME}/platform-tools:${PATH}
+    - TERM=dumb
+    # QEMU orchestrator
     - PYTHONUNBUFFERED=1
     - JOB_COMMAND="./gradlew androidtests:connectedAndroidTest"
     - QEMU_BIN=qemu-virgil
@@ -34,6 +29,33 @@ env:
     - API=25 VIRTWIFI_HACK=1 API_NAME=nougat
     - API=27 VIRTWIFI_HACK=1 API_NAME=oreo
     - API=28 VIRTWIFI_HACK=1 API_NAME=pie
+
+before_install:
+  # Set up JDK 8 for Android SDK - Java is universally needed: codacy, unit tests, emulators
+  - travis_retry git clone --depth 1 $GRAVIS_REPO $GRAVIS
+  - export TARGET_JDK="${JDK}"
+  - JDK="1.8"
+  - source $GRAVIS/install-jdk
+  - travis_retry wget -q "${ANDROID_TOOLS_URL}" -O android-sdk-tools.zip
+  - unzip -q android-sdk-tools.zip -d ${ANDROID_HOME}
+  - rm android-sdk-tools.zip
+  - mkdir ~/.android  # avoid harmless sdkmanager warning
+  - echo 'count=0' > ~/.android/repositories.cfg  # avoid harmless sdkmanager warning
+  - yes | travis_retry sdkmanager --licenses >/dev/null  # accept all sdkmanager warnings
+  - yes | travis_retry sdkmanager --no_https "platform-tools" >/dev/null
+  - yes | travis_retry sdkmanager --no_https "tools" >/dev/null  # A second time per Travis docs, gets latest versions
+  - yes | travis_retry sdkmanager --no_https "build-tools;28.0.3" >/dev/null  # Implicit gradle dependency - gradle drives changes
+  - yes | travis_retry sdkmanager --no_https "platforms;android-29" >/dev/null  # We need the API of the current compileSdkVersion from gradle.properties
+
+install:
+  - travis_retry sudo apt-get update
+  - travis_retry sudo apt-get install --no-install-suggests --no-install-recommends -y build-essential snapd golang qemu-utilslibvirt-clients fdisk python3 python3-pip python3-setuptools dosfstools rpm2cpio libarchive-tools adb ffmpeg git libpulse0 libvirt-bin qemu-kvm virtinst ubuntu-vm-builder
+  - travis_retry sudo snap install qemu-virgil
+  - travis_retry sudo pip3 install https://github.com/EtchDroid/qemu_test_orchestrator/archive/master.zip
+  - yes | travis_retry sdkmanager 'ndk-bundle'
+  - yes | travis_retry sdkmanager 'cmake;3.6.4111459'
+  - sudo adduser $USER libvirt
+  - sudo adduser $USER kvm
 
 before_script:
   # libusb
